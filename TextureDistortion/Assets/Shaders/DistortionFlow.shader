@@ -4,7 +4,7 @@
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
 		_Glossiness ("Smoothness", Range(0,1)) = 0.5
 		_Metallic ("Metallic", Range(0,1)) = 0.0
-		[NoScaleOffset] _FlowMap("Flow (RG)", 2D) = "black" {}
+		[NoScaleOffset] _FlowMap("Flow (RG, A noise)", 2D) = "black" {}
 
 	}
 	SubShader {
@@ -39,11 +39,17 @@
 
 		void surf (Input IN, inout SurfaceOutputStandard o) {
 			float2 flowVector = tex2D(_FlowMap, IN.uv_MainTex).rg * 2 - 1;
+			float noise = tex2D(_FlowMap, IN.uv_MainTex).a;
+			float time = _Time.y + noise;
 
-			float3 uvw = FlowUVW(IN.uv_MainTex, flowVector, _Time.y);
+			float3 uvwA = FlowUVW(IN.uv_MainTex, flowVector, time, 0);
+			float3 uvwB = FlowUVW(IN.uv_MainTex, flowVector, time, .5);
+
+			fixed4 texA = tex2D(_MainTex, uvwA.xy) * uvwA.z;
+			fixed4 texB = tex2D(_MainTex, uvwB.xy) * uvwB.z;
 
 			// Albedo comes from a texture tinted by color
-			fixed4 c = tex2D (_MainTex, uvw.xy) * uvw.z * _Color;
+			fixed4 c = (texA + texB) * _Color;
 			o.Albedo = c.rgb;
 			// Metallic and smoothness come from slider variables
 			o.Metallic = _Metallic;
